@@ -1,0 +1,9 @@
+{
+  "pokedex": {
+    "mainSectionTitle": "포켓몬 도감",
+    "generationFilterLabel": "세대",
+    "generationFilterAll": "모든 세대",
+    "sectionToggleCollapse": "섹션 접기",
+    "sectionToggleExpand": "섹션 펼치기"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "pokedex": {
+    "mainSectionTitle": "图鉴",
+    "generationFilterLabel": "世代",
+    "generationFilterAll": "所有世代",
+    "sectionToggleCollapse": "收起该区域",
+    "sectionToggleExpand": "展开该区域"
+  }
+}

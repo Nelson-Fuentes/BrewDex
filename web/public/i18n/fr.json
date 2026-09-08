@@ -1,0 +1,9 @@
+{
+  "pokedex": {
+    "mainSectionTitle": "Pokédex",
+    "generationFilterLabel": "Génération",
+    "generationFilterAll": "Toutes les générations",
+    "sectionToggleCollapse": "Réduire la section",
+    "sectionToggleExpand": "Développer la section"
+  }
+}

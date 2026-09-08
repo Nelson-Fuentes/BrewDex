@@ -1,0 +1,58 @@
+{
+  "common": {
+    "retry": "Reintentar",
+    "loading": "Cargando…",
+    "errorTitle": "Algo salió mal",
+    "errorBody": "No pudimos conectar con la fuente de datos de Pokémon. Probá de nuevo.",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "close": "Cerrar",
+    "back": "Volver"
+  },
+  "language": {
+    "title": "Elegí tu idioma"
+  },
+  "game": {
+    "title": "Elegí tu juego",
+    "searchPlaceholder": "Buscar juegos…",
+    "generationFilterLabel": "Generación",
+    "generationFilterAll": "Todas las generaciones",
+    "dlcSectionTitle": "Expansiones",
+    "noResults": "Ningún juego coincide con tu búsqueda.",
+    "changeGameConfirmTitle": "¿Cambiar de juego?",
+    "changeGameConfirmBody": "Tu equipo actual se va a perder. Esta acción no se puede deshacer."
+  },
+  "pokedex": {
+    "searchPlaceholder": "Buscar Pokémon…",
+    "typeFilterLabel": "Tipo",
+    "typeFilterAll": "Todos los tipos",
+    "nationalDexToggle": "Pokédex Nacional",
+    "noResults": "Ningún Pokémon coincide con tu búsqueda.",
+    "add": "Agregar al equipo",
+    "mainSectionTitle": "Pokédex",
+    "generationFilterLabel": "Generación",
+    "generationFilterAll": "Todas las generaciones",
+    "sectionToggleCollapse": "Contraer sección",
+    "sectionToggleExpand": "Expandir sección"
+  },
+  "team": {
+    "title": "Tu equipo",
+    "emptySlot": "Slot vacío",
+    "teamFull": "Tu equipo está completo (6/6). Quitá un Pokémon para agregar otro.",
+    "remove": "Quitar",
+    "formSelectionTitle": "Elegí una forma",
+    "moveSelectionTitle": "Elegí los movimientos",
+    "moveSlot": "Movimiento {{position}}",
+    "damageClass": {
+      "physical": "Físico",
+      "special": "Especial",
+      "status": "Estado"
+    },
+    "teraTypeTitle": "Tipo Tera",
+    "shinyToggle": "Shiny",
+    "genderToggle": "Género",
+    "genderMale": "Macho",
+    "genderFemale": "Hembra",
+    "genderless": "Sin género"
+  }
+}

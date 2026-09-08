@@ -1,0 +1,149 @@
+// Estilos globales de BrewDex — único punto de entrada al tema Angular
+// Material M3 (research.md Decisión 8).
+@use '@angular/material' as mat;
+@use './shared/design-system/theme/m3-theme' as brewdex-theme;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Variables de marca y sistema de diseño
+:root {
+  --brewdex-corner-radius: 16px;
+  --brewdex-page-max-width: 1000px;
+  --mdc-outlined-card-container-shape: var(--brewdex-corner-radius);
+  --mdc-elevated-card-container-shape: var(--brewdex-corner-radius);
+  --mdc-filled-button-container-shape: calc(var(--brewdex-corner-radius) / 2);
+  --mdc-outlined-button-container-shape: calc(var(--brewdex-corner-radius) / 2);
+  --mdc-chip-container-shape-radius: calc(var(--brewdex-corner-radius) / 2);
+
+  // Paleta de colores por tipo de Pokémon
+  --type-normal: #A8A77A;
+  --type-fire: #EE8130;
+  --type-water: #6390F0;
+  --type-electric: #F7D02C;
+  --type-grass: #7AC74C;
+  --type-ice: #96D9D6;
+  --type-fighting: #C22E28;
+  --type-poison: #A33EA1;
+  --type-ground: #E2BF65;
+  --type-flying: #A98FF3;
+  --type-psychic: #F95587;
+  --type-bug: #A6B91A;
+  --type-rock: #B6A136;
+  --type-ghost: #735797;
+  --type-dragon: #6F35FC;
+  --type-dark: #705746;
+  --type-steel: #B7B7CE;
+  --type-fairy: #D685AD;
+}
+
+@include mat.core();
+
+html {
+  @include mat.all-component-themes(brewdex-theme.$light-theme);
+  background-color: var(--mat-sys-surface, #f8f9fa);
+  color: var(--mat-sys-on-surface, #1d1a22);
+
+  @media (prefers-color-scheme: dark) {
+    @include mat.all-component-colors(brewdex-theme.$dark-theme);
+    background-color: var(--mat-sys-surface, #121016);
+  }
+
+  color-scheme: light dark;
+}
+
+// Título de marca con gradiente y tipografía atractiva
+.app-brand-title {
+  margin: 0;
+  padding: 1.25rem 1rem 0.5rem;
+  text-align: center;
+  font-size: clamp(1.85rem, 4.5vw, 2.85rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--mat-sys-primary, #673ab7), var(--mat-sys-tertiary, #9c27b0));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.app-page-subtitle {
+  margin: 0 0 1.25rem;
+  text-align: center;
+  font-size: 0.95rem;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+.app-page-container {
+  max-width: var(--brewdex-page-max-width);
+  margin: 0 auto;
+  padding: 0 1rem 2rem;
+}
+
+// Tarjetas modales y overlay con Glassmorphism (spec 019/020)
+.app-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: appFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.app-modal-card {
+  background: var(--mat-sys-surface, #fff);
+  color: var(--mat-sys-on-surface, #1d1a22);
+  border-radius: var(--brewdex-corner-radius, 16px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  max-width: min(520px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: appScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// Animaciones clave globales
+@keyframes appFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes appScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes appPulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+

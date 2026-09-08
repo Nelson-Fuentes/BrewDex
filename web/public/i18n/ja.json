@@ -1,0 +1,9 @@
+{
+  "pokedex": {
+    "mainSectionTitle": "ポケモン図鑑",
+    "generationFilterLabel": "世代",
+    "generationFilterAll": "すべての世代",
+    "sectionToggleCollapse": "セクションを折りたたむ",
+    "sectionToggleExpand": "セクションを展開する"
+  }
+}

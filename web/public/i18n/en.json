@@ -1,0 +1,58 @@
+{
+  "common": {
+    "retry": "Retry",
+    "loading": "Loading…",
+    "errorTitle": "Something went wrong",
+    "errorBody": "We couldn't reach the Pokémon data source. Please try again.",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "back": "Back"
+  },
+  "language": {
+    "title": "Choose your language"
+  },
+  "game": {
+    "title": "Choose your game",
+    "searchPlaceholder": "Search games…",
+    "generationFilterLabel": "Generation",
+    "generationFilterAll": "All generations",
+    "dlcSectionTitle": "Expansions",
+    "noResults": "No games match your search.",
+    "changeGameConfirmTitle": "Change game?",
+    "changeGameConfirmBody": "Your current team will be discarded. This can't be undone."
+  },
+  "pokedex": {
+    "searchPlaceholder": "Search Pokémon…",
+    "typeFilterLabel": "Type",
+    "typeFilterAll": "All types",
+    "nationalDexToggle": "National Dex",
+    "noResults": "No Pokémon match your search.",
+    "add": "Add to team",
+    "mainSectionTitle": "Pokédex",
+    "generationFilterLabel": "Generation",
+    "generationFilterAll": "All generations",
+    "sectionToggleCollapse": "Collapse section",
+    "sectionToggleExpand": "Expand section"
+  },
+  "team": {
+    "title": "Your team",
+    "emptySlot": "Empty slot",
+    "teamFull": "Your team is full (6/6). Remove a Pokémon to add another.",
+    "remove": "Remove",
+    "formSelectionTitle": "Choose a form",
+    "moveSelectionTitle": "Choose moves",
+    "moveSlot": "Move {{position}}",
+    "damageClass": {
+      "physical": "Physical",
+      "special": "Special",
+      "status": "Status"
+    },
+    "teraTypeTitle": "Tera Type",
+    "shinyToggle": "Shiny",
+    "genderToggle": "Gender",
+    "genderMale": "Male",
+    "genderFemale": "Female",
+    "genderless": "Genderless"
+  }
+}
