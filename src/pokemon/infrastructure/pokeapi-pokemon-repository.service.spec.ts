@@ -290,6 +290,194 @@ describe('PokeApiPokemonRepositoryService', () => {
     expect(entry.typePrimary.id).toBe('fairy');
   });
 
+  // 022-historical-stat-changes — algunas especies tuvieron cambios reales
+  // y permanentes de estadísticas base entre generaciones (p. ej. Pidgeot:
+  // Velocidad 91 hasta Generación V, 101 desde la VI); PokeAPI los expone
+  // en `past_stats`, análogo a `past_types` pero parcial por tramo (solo
+  // lista las estadísticas que de verdad cambiaron en ese corte).
+  describe('estadísticas históricas (past_stats, 022)', () => {
+    function pidgeotSpeciesFixture() {
+      return {
+        gender_rate: 4,
+        has_gender_differences: false,
+        generation: { name: 'generation-i', url: '' },
+        names: NAME_EN('Pidgeot'),
+        varieties: [{ is_default: true, pokemon: { name: 'pidgeot', url: '' } }],
+        pokedex_numbers: [{ entry_number: 18, pokedex: { name: 'kanto', url: '' } }],
+      };
+    }
+
+    /** Vigente: hp83/atk80/def75/spa70/spd70/spe101. `pastStats` inyecta
+     *  los tramos históricos a probar en cada test. */
+    function pidgeotFixture(pastStats?: unknown) {
+      return {
+        ...pokemonFixture('pidgeot', 83),
+        stats: [
+          { base_stat: 83, stat: { name: 'hp', url: '' } },
+          { base_stat: 80, stat: { name: 'attack', url: '' } },
+          { base_stat: 75, stat: { name: 'defense', url: '' } },
+          { base_stat: 70, stat: { name: 'special-attack', url: '' } },
+          { base_stat: 70, stat: { name: 'special-defense', url: '' } },
+          { base_stat: 101, stat: { name: 'speed', url: '' } },
+        ],
+        ...(pastStats !== undefined ? { past_stats: pastStats } : {}),
+      };
+    }
+
+    function pidgeotFormResponders(pastStats: unknown | undefined, url: string): unknown | undefined {
+      if (url.includes('/pokemon-species/pidgeot/')) return pidgeotSpeciesFixture();
+      if (url.includes('/pokemon/pidgeot/')) return pidgeotFixture(pastStats);
+      if (url.includes('/generation/generation-i/')) return { name: 'generation-i', names: NAME_EN('Generation I') };
+      if (url.includes('/pokemon-form/pidgeot/')) {
+        return { name: 'pidgeot', is_default: true, is_battle_only: false, is_mega: false, form_name: '', names: NAME_EN('Pidgeot'), sprites: { front_default: 'sprite.png' } };
+      }
+      return undefined;
+    }
+
+    it('usa la estadística histórica (past_stats) vigente en la generación del juego activo', async () => {
+      const blackWhite = new Game('black-white', 'Black/White', new Generation('generation-v', 'V'));
+      const promise = service.fetchPokedexDetails(blackWhite, new PokedexView(), ['pidgeot'], 'en');
+
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/black-white/')) return { pokedexes: [{ name: 'unova', url: '' }] };
+        return pidgeotFormResponders(
+          [{ generation: { name: 'generation-v', url: '' }, stats: [{ base_stat: 91, stat: { name: 'speed', url: '' } }] }],
+          url,
+        );
+      });
+
+      const [entry] = await promise;
+      expect(entry.baseStats.speed).toBe(91);
+      expect(entry.baseStats.hp).toBe(83);
+      expect(entry.baseStats.specialAttack).toBe(70);
+    });
+
+    it('combina dos tramos de past_stats aplicables a la vez (caso real de Pidgeot)', async () => {
+      const redBlue = game; // 'red-blue', Generación I, ya declarado en el describe externo
+      const promise = service.fetchPokedexDetails(redBlue, new PokedexView(), ['pidgeot'], 'en');
+      const pastStats = [
+        { generation: { name: 'generation-i', url: '' }, stats: [{ base_stat: 60, stat: { name: 'special', url: '' } }] },
+        { generation: { name: 'generation-v', url: '' }, stats: [{ base_stat: 91, stat: { name: 'speed', url: '' } }] },
+      ];
+
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/red-blue/')) return { pokedexes: [{ name: 'kanto', url: '' }] };
+        return pidgeotFormResponders(pastStats, url);
+      });
+
+      const [entry] = await promise;
+      // Ambos tramos aplican a Generación I (ordinal 0): el legacy
+      // `special` (pre-split Ataque Especial/Defensa Especial) Y el
+      // tramo de Velocidad — combinados, no solo el más cercano.
+      expect(entry.baseStats.specialAttack).toBe(60);
+      expect(entry.baseStats.specialDefense).toBe(60);
+      expect(entry.baseStats.speed).toBe(91);
+      expect(entry.baseStats.hp).toBe(83);
+    });
+
+    it('usa el valor vigente cuando el juego activo es posterior al último tramo de past_stats', async () => {
+      const scarletViolet = new Game('scarlet-violet', 'Scarlet/Violet', new Generation('generation-ix', 'IX'));
+      const promise = service.fetchPokedexDetails(scarletViolet, new PokedexView(), ['pidgeot'], 'en');
+      const pastStats = [
+        { generation: { name: 'generation-i', url: '' }, stats: [{ base_stat: 60, stat: { name: 'special', url: '' } }] },
+        { generation: { name: 'generation-v', url: '' }, stats: [{ base_stat: 91, stat: { name: 'speed', url: '' } }] },
+      ];
+
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/scarlet-violet/')) return { pokedexes: [{ name: 'paldea', url: '' }] };
+        return pidgeotFormResponders(pastStats, url);
+      });
+
+      const [entry] = await promise;
+      expect(entry.baseStats.hp).toBe(83);
+      expect(entry.baseStats.attack).toBe(80);
+      expect(entry.baseStats.defense).toBe(75);
+      expect(entry.baseStats.specialAttack).toBe(70);
+      expect(entry.baseStats.specialDefense).toBe(70);
+      expect(entry.baseStats.speed).toBe(101);
+    });
+
+    it('una especie sin past_stats muestra siempre las mismas estadísticas sin importar el juego (sin regresión, FR-005)', async () => {
+      const redBlue = game;
+      const promise1 = service.fetchPokedexDetails(redBlue, new PokedexView(), ['pidgeot'], 'en');
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/red-blue/')) return { pokedexes: [{ name: 'kanto', url: '' }] };
+        return pidgeotFormResponders(undefined, url);
+      });
+      const [entryOld] = await promise1;
+
+      const scarletViolet = new Game('scarlet-violet', 'Scarlet/Violet', new Generation('generation-ix', 'IX'));
+      const promise2 = service.fetchPokedexDetails(scarletViolet, new PokedexView(), ['pidgeot'], 'en');
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/scarlet-violet/')) return { pokedexes: [{ name: 'paldea', url: '' }] };
+        return pidgeotFormResponders(undefined, url);
+      });
+      const [entryNew] = await promise2;
+
+      expect(entryOld.baseStats).toEqual(entryNew.baseStats);
+      expect(entryNew.baseStats.speed).toBe(101);
+    });
+
+    it('el cambio histórico solo afecta a la forma base, nunca a una variedad alternativa (FR-006)', async () => {
+      const redBlue = game; // Generación I — el tramo histórico de Pidgeot aplica
+      const promise = service.fetchPokedexDetails(redBlue, new PokedexView(), ['pidgeot'], 'en');
+      const pastStats = [{ generation: { name: 'generation-v', url: '' }, stats: [{ base_stat: 91, stat: { name: 'speed', url: '' } }] }];
+
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/red-blue/')) return { pokedexes: [{ name: 'kanto', url: '' }] };
+        if (url.includes('/pokemon-species/pidgeot/')) {
+          return {
+            ...pidgeotSpeciesFixture(),
+            varieties: [
+              { is_default: true, pokemon: { name: 'pidgeot', url: '' } },
+              { is_default: false, pokemon: { name: 'pidgeot-other', url: '' } },
+            ],
+          };
+        }
+        if (url.includes('/pokemon/pidgeot-other/')) return pokemonFixture('pidgeot-other', 83);
+        if (url.includes('/pokemon-form/pidgeot-other/')) {
+          return { name: 'pidgeot-other', is_default: true, is_battle_only: false, is_mega: false, form_name: 'other', names: NAME_EN('Otra forma de Pidgeot'), sprites: { front_default: 'sprite.png' } };
+        }
+        return pidgeotFormResponders(pastStats, url);
+      });
+
+      const [entry] = await promise;
+      // La forma base refleja el tramo histórico (Velocidad 91, no 101)...
+      expect(entry.baseStats.speed).toBe(91);
+      // ...pero la variedad alternativa mantiene sus propias estadísticas
+      // vigentes sin ningún ajuste histórico (49/49/65/65/45 de
+      // `pokemonFixture`, sin tocar `speed`).
+      expect(entry.selectableForms.length).toBe(1);
+      expect(entry.selectableForms[0].baseStats.speed).toBe(45);
+    });
+
+    // 022-historical-stat-changes, User Story 2 (FR-004/SC-003) — dos
+    // llamadas seguidas con juegos de distinta generación no deben
+    // devolver un valor cacheado de la primera resolución.
+    it('dos llamadas seguidas con juegos de distinta generación devuelven baseStats distintos para una especie con cambio histórico', async () => {
+      const pastStats = [{ generation: { name: 'generation-v', url: '' }, stats: [{ base_stat: 91, stat: { name: 'speed', url: '' } }] }];
+
+      const redBlue = game;
+      const promise1 = service.fetchPokedexDetails(redBlue, new PokedexView(), ['pidgeot'], 'en');
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/red-blue/')) return { pokedexes: [{ name: 'kanto', url: '' }] };
+        return pidgeotFormResponders(pastStats, url);
+      });
+      const [entryOld] = await promise1;
+
+      const swordShield = new Game('sword-shield', 'Sword/Shield', new Generation('generation-viii', 'VIII'));
+      const promise2 = service.fetchPokedexDetails(swordShield, new PokedexView(), ['pidgeot'], 'en');
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/sword-shield/')) return { pokedexes: [{ name: 'galar', url: '' }] };
+        return pidgeotFormResponders(pastStats, url);
+      });
+      const [entryNew] = await promise2;
+
+      expect(entryOld.baseStats.speed).toBe(91);
+      expect(entryNew.baseStats.speed).toBe(101);
+    });
+  });
+
   it('cae al sprite genérico si el juego activo no tiene un sprite versionado propio (FR-006, 018)', async () => {
     const promise = service.fetchPokedexDetails(game, new PokedexView(), ['bulbasaur'], 'en');
 
@@ -355,6 +543,13 @@ describe('PokeApiPokemonRepositoryService', () => {
     // La forma principal usada para sprites/tipos/stats es la alolana.
     expect(entry.spriteUrl).toBe('sprite.png');
     expect(entry.baseStats.hp).toBe(30);
+    // 021-move-slots-filters, corrección post-release: `defaultVarietyId`
+    // debe apuntar a la variedad regional (`rattata-alola`), no a
+    // `pokemonId` ("rattata") — de lo contrario el movepool/moveset por
+    // defecto de una forma regional principal (p. ej. Ninetales de Alola
+    // en Ultra Sol/Ultra Luna) cae en la variedad de Kanto por error.
+    expect(entry.pokemonId).toBe('rattata');
+    expect(entry.defaultVarietyId).toBe('rattata-alola');
   });
 
   it('usa la raza de combate de Tauros de Paldea por defecto en Escarlata/Púrpura (020, ronda 8)', async () => {
@@ -801,11 +996,17 @@ describe('PokeApiPokemonRepositoryService', () => {
       expect(entry.selectableForms.map((f) => f.varietyId).sort()).toEqual(['raticate', 'raticate-totem-alola']);
     });
 
-    // Bug reportado (020, corrección 3): Zygarde ofrecía su Forma
-    // Completa como forma seleccionable — esa forma es `is_battle_only`
-    // en PokeAPI (solo se alcanza transformándose en batalla al activar
-    // Poder Conjunto, nunca una elección manual fuera de ella).
-    it('NO ofrece la Forma Completa de Zygarde (is_battle_only) como forma seleccionable', async () => {
+    // Bug reportado: Zygarde no ofrecía su Forma Completa como forma
+    // seleccionable en ningún juego — PokeAPI la marca `is_battle_only`
+    // de forma global (en Sol/Luna, Ultrasol/Ultraluna y Escarlata/
+    // Púrpura solo se alcanza transformándose en batalla al activar
+    // Poder Conjunto; en Leyendas Z-A, en cambio, el Cubo Zygarde sí
+    // permite cambiar libremente entre las Formas 10%/50%/Completa
+    // desde el menú). Se ofrece igual en TODOS los juegos con Zygarde
+    // (decisión de producto: se prioriza poder mostrar/planificar la
+    // forma en el Pokédex/equipo por sobre el mecanismo real de cada
+    // juego) — ver BATTLE_ONLY_SELECTABLE_VARIETY_IDS.
+    it('SÍ ofrece la Forma Completa de Zygarde (excepción a is_battle_only, cualquier juego)', async () => {
       const sunMoon = new Game('sun-moon', 'Sun/Moon', new Generation('generation-vii', 'VII'));
       const promise = service.fetchPokedexDetails(sunMoon, new PokedexView(), ['zygarde'], 'en');
 
@@ -842,7 +1043,7 @@ describe('PokeApiPokemonRepositoryService', () => {
       });
 
       const [entry] = await promise;
-      expect(entry.selectableForms.map((f) => f.varietyId)).toEqual(['zygarde-10']);
+      expect(entry.selectableForms.map((f) => f.varietyId).sort()).toEqual(['zygarde-10', 'zygarde-complete']);
     });
 
     // Corrección 6 (spec `020`): una forma 'template' sin sprite HOME
@@ -1274,6 +1475,192 @@ describe('PokeApiPokemonRepositoryService', () => {
 
       const [entry] = await promise;
       expect(entry.selectableForms.map((f) => f.varietyId)).toEqual(['toxtricity-low-key']);
+    });
+
+    // Bug reportado: Keldeo Forma Resoluta no aparecía como forma
+    // seleccionable. Verificado en vivo contra PokeAPI: mismo tipo
+    // Agua/Lucha y mismas 6 estadísticas base que la Forma Corriente
+    // (no `is_battle_only`), pero SÍ es un estado real y persistente
+    // fuera de combate (se obtiene al aprender Espada Sagrada) — mismo
+    // caso que Toxtricity, ver NON_COSMETIC_DESPITE_SAME_STATS_VARIETY_IDS.
+    it('SÍ ofrece la Forma Resoluta de Keldeo (mismo tipo y stats que la Corriente, pero es un estado persistente real)', async () => {
+      function keldeoStats() {
+        return {
+          types: [
+            { slot: 1, type: { name: 'water', url: '' } },
+            { slot: 2, type: { name: 'fighting', url: '' } },
+          ],
+          stats: [
+            { base_stat: 91, stat: { name: 'hp', url: '' } },
+            { base_stat: 72, stat: { name: 'attack', url: '' } },
+            { base_stat: 90, stat: { name: 'defense', url: '' } },
+            { base_stat: 129, stat: { name: 'special-attack', url: '' } },
+            { base_stat: 90, stat: { name: 'special-defense', url: '' } },
+            { base_stat: 108, stat: { name: 'speed', url: '' } },
+          ],
+        };
+      }
+
+      const promise = service.fetchPokedexDetails(game, new PokedexView(), ['keldeo'], 'en');
+
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/red-blue/')) return { pokedexes: [{ name: 'kanto', url: '' }] };
+        if (url.includes('/pokemon-species/keldeo/')) {
+          return {
+            gender_rate: -1,
+            has_gender_differences: false,
+            generation: { name: 'generation-v', url: '' },
+            names: NAME_EN('Keldeo'),
+            varieties: [
+              { is_default: true, pokemon: { name: 'keldeo-ordinary', url: '' } },
+              { is_default: false, pokemon: { name: 'keldeo-resolute', url: '' } },
+            ],
+            pokedex_numbers: [{ entry_number: 1, pokedex: { name: 'kanto', url: '' } }],
+          };
+        }
+        if (url.includes('/pokemon/keldeo-ordinary/')) {
+          return {
+            name: 'keldeo-ordinary',
+            ...keldeoStats(),
+            sprites: { front_default: 'sprite.png', other: { home: { front_default: 'home-ordinary.png', front_shiny: null, front_female: null, front_shiny_female: null } } },
+            forms: [{ name: 'keldeo-ordinary', url: `${BASE}pokemon-form/keldeo-ordinary/` }],
+          };
+        }
+        if (url.includes('/pokemon/keldeo-resolute/')) {
+          return {
+            name: 'keldeo-resolute',
+            ...keldeoStats(),
+            sprites: { front_default: 'sprite.png', other: { home: { front_default: 'home-resolute.png', front_shiny: null, front_female: null, front_shiny_female: null } } },
+            forms: [{ name: 'keldeo-resolute', url: `${BASE}pokemon-form/keldeo-resolute/` }],
+          };
+        }
+        if (url.includes('/pokemon-form/keldeo-ordinary/')) {
+          return { name: 'keldeo-ordinary', is_default: true, is_battle_only: false, is_mega: false, form_name: 'ordinary', names: NAME_EN('Keldeo (Ordinary)'), sprites: { front_default: 'sprite.png' } };
+        }
+        if (url.includes('/pokemon-form/keldeo-resolute/')) {
+          return { name: 'keldeo-resolute', is_default: true, is_battle_only: false, is_mega: false, form_name: 'resolute', names: NAME_EN('Keldeo (Resolute)'), sprites: { front_default: 'sprite.png' } };
+        }
+        if (url.includes('/generation/generation-v/')) return { name: 'generation-v', names: NAME_EN('Generation V') };
+        return undefined;
+      });
+
+      const [entry] = await promise;
+      expect(entry.selectableForms.map((f) => f.varietyId)).toEqual(['keldeo-resolute']);
+    });
+
+    // Bug reportado: Wishiwashi Forma Escolar y Meloetta Forma Pirueta no
+    // aparecían como formas seleccionables pese a que la persona sí
+    // quiere poder mostrarlas/planificarlas en el Pokédex/equipo.
+    // Verificado en vivo contra PokeAPI: ambas son `is_battle_only`
+    // (cambian solas dentro de un combate y revierten fuera de él —
+    // Wishiwashi según HP/nivel, Meloetta al usar Canción Reliquia), pero
+    // se ofrecen igual como excepción explícita — ver
+    // BATTLE_ONLY_SELECTABLE_VARIETY_IDS.
+    it('SÍ ofrece la Forma Escolar de Wishiwashi y la Forma Pirueta de Meloetta (is_battle_only, pero seleccionables igual)', async () => {
+      function statsOf(values: readonly [number, number, number, number, number, number]) {
+        const [hp, attack, defense, specialAttack, specialDefense, speed] = values;
+        return [
+          { base_stat: hp, stat: { name: 'hp', url: '' } },
+          { base_stat: attack, stat: { name: 'attack', url: '' } },
+          { base_stat: defense, stat: { name: 'defense', url: '' } },
+          { base_stat: specialAttack, stat: { name: 'special-attack', url: '' } },
+          { base_stat: specialDefense, stat: { name: 'special-defense', url: '' } },
+          { base_stat: speed, stat: { name: 'speed', url: '' } },
+        ];
+      }
+
+      const promise = service.fetchPokedexDetails(game, new PokedexView(), ['wishiwashi', 'meloetta'], 'en');
+
+      await flushAllPending(httpMock, (url) => {
+        if (url.includes('/version-group/red-blue/')) return { pokedexes: [{ name: 'kanto', url: '' }] };
+        if (url.includes('/pokemon-species/wishiwashi/')) {
+          return {
+            gender_rate: -1,
+            has_gender_differences: false,
+            generation: { name: 'generation-vii', url: '' },
+            names: NAME_EN('Wishiwashi'),
+            varieties: [
+              { is_default: true, pokemon: { name: 'wishiwashi-solo', url: '' } },
+              { is_default: false, pokemon: { name: 'wishiwashi-school', url: '' } },
+            ],
+            pokedex_numbers: [{ entry_number: 1, pokedex: { name: 'kanto', url: '' } }],
+          };
+        }
+        if (url.includes('/pokemon-species/meloetta/')) {
+          return {
+            gender_rate: -1,
+            has_gender_differences: false,
+            generation: { name: 'generation-v', url: '' },
+            names: NAME_EN('Meloetta'),
+            varieties: [
+              { is_default: true, pokemon: { name: 'meloetta-aria', url: '' } },
+              { is_default: false, pokemon: { name: 'meloetta-pirouette', url: '' } },
+            ],
+            pokedex_numbers: [{ entry_number: 2, pokedex: { name: 'kanto', url: '' } }],
+          };
+        }
+        if (url.includes('/pokemon/wishiwashi-solo/')) {
+          return {
+            name: 'wishiwashi-solo',
+            types: [{ slot: 1, type: { name: 'water', url: '' } }],
+            stats: statsOf([45, 20, 20, 25, 25, 40]),
+            sprites: { front_default: 'sprite.png', other: { home: { front_default: 'home-solo.png', front_shiny: null, front_female: null, front_shiny_female: null } } },
+            forms: [{ name: 'wishiwashi-solo', url: `${BASE}pokemon-form/wishiwashi-solo/` }],
+          };
+        }
+        if (url.includes('/pokemon/wishiwashi-school/')) {
+          return {
+            name: 'wishiwashi-school',
+            types: [{ slot: 1, type: { name: 'water', url: '' } }],
+            stats: statsOf([45, 140, 130, 140, 135, 30]),
+            sprites: { front_default: 'sprite.png', other: { home: { front_default: 'home-school.png', front_shiny: null, front_female: null, front_shiny_female: null } } },
+            forms: [{ name: 'wishiwashi-school', url: `${BASE}pokemon-form/wishiwashi-school/` }],
+          };
+        }
+        if (url.includes('/pokemon/meloetta-aria/')) {
+          return {
+            name: 'meloetta-aria',
+            types: [
+              { slot: 1, type: { name: 'normal', url: '' } },
+              { slot: 2, type: { name: 'psychic', url: '' } },
+            ],
+            stats: statsOf([100, 77, 77, 128, 128, 90]),
+            sprites: { front_default: 'sprite.png', other: { home: { front_default: 'home-aria.png', front_shiny: null, front_female: null, front_shiny_female: null } } },
+            forms: [{ name: 'meloetta-aria', url: `${BASE}pokemon-form/meloetta-aria/` }],
+          };
+        }
+        if (url.includes('/pokemon/meloetta-pirouette/')) {
+          return {
+            name: 'meloetta-pirouette',
+            types: [
+              { slot: 1, type: { name: 'normal', url: '' } },
+              { slot: 2, type: { name: 'fighting', url: '' } },
+            ],
+            stats: statsOf([100, 128, 90, 77, 77, 128]),
+            sprites: { front_default: 'sprite.png', other: { home: { front_default: 'home-pirouette.png', front_shiny: null, front_female: null, front_shiny_female: null } } },
+            forms: [{ name: 'meloetta-pirouette', url: `${BASE}pokemon-form/meloetta-pirouette/` }],
+          };
+        }
+        if (url.includes('/pokemon-form/wishiwashi-solo/')) {
+          return { name: 'wishiwashi-solo', is_default: true, is_battle_only: false, is_mega: false, form_name: 'solo', names: NAME_EN('Wishiwashi (Solo)'), sprites: { front_default: 'sprite.png' } };
+        }
+        if (url.includes('/pokemon-form/wishiwashi-school/')) {
+          return { name: 'wishiwashi-school', is_default: true, is_battle_only: true, is_mega: false, form_name: 'school', names: NAME_EN('Wishiwashi (School)'), sprites: { front_default: 'sprite.png' } };
+        }
+        if (url.includes('/pokemon-form/meloetta-aria/')) {
+          return { name: 'meloetta-aria', is_default: true, is_battle_only: false, is_mega: false, form_name: 'aria', names: NAME_EN('Meloetta (Aria)'), sprites: { front_default: 'sprite.png' } };
+        }
+        if (url.includes('/pokemon-form/meloetta-pirouette/')) {
+          return { name: 'meloetta-pirouette', is_default: true, is_battle_only: true, is_mega: false, form_name: 'pirouette', names: NAME_EN('Meloetta (Pirouette)'), sprites: { front_default: 'sprite.png' } };
+        }
+        if (url.includes('/generation/generation-vii/')) return { name: 'generation-vii', names: NAME_EN('Generation VII') };
+        if (url.includes('/generation/generation-v/')) return { name: 'generation-v', names: NAME_EN('Generation V') };
+        return undefined;
+      });
+
+      const [wishiwashiEntry, meloettaEntry] = await promise;
+      expect(wishiwashiEntry.selectableForms.map((f) => f.varietyId)).toEqual(['wishiwashi-school']);
+      expect(meloettaEntry.selectableForms.map((f) => f.varietyId)).toEqual(['meloetta-pirouette']);
     });
   });
 

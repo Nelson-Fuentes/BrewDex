@@ -29,3 +29,12 @@ const DEFAULT_TYPE_COLOR = '#8A8A99';
 export function colorForType(typeId: string): string {
   return POKEMON_TYPE_COLORS[typeId] ?? DEFAULT_TYPE_COLOR;
 }
+
+export function rgbaForType(typeId: string, alpha = 0.2): string {
+  const hex = colorForType(typeId).replace('#', '');
+  const r = parseInt(hex.substring(0, 2), 16) || 138;
+  const g = parseInt(hex.substring(2, 4), 16) || 138;
+  const b = parseInt(hex.substring(4, 6), 16) || 153;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+

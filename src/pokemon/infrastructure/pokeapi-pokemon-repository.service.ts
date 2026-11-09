@@ -114,6 +114,31 @@ const TEMPLATE_FORM_ONLY_IN_GAME_IDS: Readonly<Record<string, readonly string[]>
 };
 
 /**
+ * Variedades 'template' que PokeAPI marca `is_battle_only` (se
+ * transforman dentro de un combate, o —caso Zygarde— solo se alcanzan
+ * activando una mecánica de combate concreta) pero que igual se ofrecen
+ * como forma seleccionable en CUALQUIER juego donde exista la especie:
+ * la persona quiere poder mostrar/planificar esta forma en el
+ * Pokédex/equipo aunque el juego real no la deje elegida de forma
+ * manual y persistente fuera de combate. Verificado en vivo contra
+ * PokeAPI:
+ * - `zygarde-complete`: en Sol/Luna, Ultrasol/Ultraluna y
+ *   Escarlata/Púrpura solo se alcanza transformándose en batalla al
+ *   activar Poder Conjunto; en Leyendas Z-A, en cambio, el Cubo Zygarde
+ *   sí permite cambiar libremente entre las Formas 10%/50%/Completa
+ *   desde el menú — se ofrece igual en todos, sin distinguir el juego
+ *   (bug reportado, extendiendo la excepción original solo para
+ *   Leyendas Z-A).
+ * - `wishiwashi-school`: cambia sola según HP/nivel dentro de un
+ *   combate (Nivel 20+, HP > 1/4); revierte a Solitaria fuera de él.
+ * - `meloetta-pirouette`: cambia solo al usar el movimiento Canción
+ *   Reliquia en combate; revierte a Melodía al salir de combate o al
+ *   terminarlo (además cambia de tipo, Normal/Psíquico a
+ *   Normal/Lucha — no es cosmética).
+ */
+const BATTLE_ONLY_SELECTABLE_VARIETY_IDS = new Set<string>(['zygarde-complete', 'wishiwashi-school', 'meloetta-pirouette']);
+
+/**
  * Variedades 'template' con el mismo tipo Y las mismas estadísticas base
  * que su forma principal que, pese a eso, SÍ son una forma jugable real
  * y deben ofrecerse en el selector — excepción a la heurística
@@ -126,9 +151,18 @@ const TEMPLATE_FORM_ONLY_IN_GAME_IDS: Readonly<Record<string, readonly string[]>
  * PokeAPI reporte idéntico tipo Eléctrico/Veneno y las mismas 6
  * estadísticas base que la forma Amperio. A diferencia de las gorras de
  * Pikachu (puramente cosméticas, sin ninguna diferencia jugable), esta sí
- * debe pasar el filtro de `isCosmeticOnly`.
+ * debe pasar el filtro de `isCosmeticOnly`. También cubre
+ * `keldeo-resolute` — bug reportado: Keldeo Forma Resoluta no aparecía
+ * como forma seleccionable. Verificado en vivo contra PokeAPI: mismo
+ * tipo Agua/Lucha y mismas 6 estadísticas base que la Forma Corriente,
+ * pero a diferencia de las gorras de Pikachu SÍ representa un estado
+ * real y persistente fuera de combate (Keldeo cambia a esta forma al
+ * aprender el movimiento Espada Sagrada y se mantiene así hasta que lo
+ * olvida — no revierte sola como Wishiwashi/Meloetta, ver
+ * {@link BATTLE_ONLY_SELECTABLE_VARIETY_IDS}; de hecho no es
+ * `is_battle_only` en absoluto).
  */
-const NON_COSMETIC_DESPITE_SAME_STATS_VARIETY_IDS = new Set<string>(['toxtricity-low-key']);
+const NON_COSMETIC_DESPITE_SAME_STATS_VARIETY_IDS = new Set<string>(['toxtricity-low-key', 'keldeo-resolute']);
 
 /**
  * Claves alternativas de `sprites.versions[generation]` a probar cuando
@@ -262,6 +296,23 @@ interface PokeApiPastTypeEntry {
   readonly types: readonly PokeApiTypeSlot[];
 }
 
+/** Un tramo histórico de estadísticas — "hasta (e incluyendo) esta
+ *  generación, el Pokémon tuvo estos valores" (spec
+ *  `022-historical-stat-changes`; verificado en vivo: p. ej. Pidgeot
+ *  declara un tramo `generation-v` con `speed: 91` — sube a 101 desde la
+ *  Generación VI). A diferencia de {@link PokeApiPastTypeEntry}, `stats`
+ *  es **parcial**: solo lista las estadísticas que de verdad cambiaron
+ *  en ese corte, no las seis — puede haber más de un tramo aplicable a
+ *  la vez, cada uno con estadísticas distintas (ver
+ *  `resolveApplicableStats`). Puede usar el nombre legacy `'special'`
+ *  (la estadística Especial única previa al split de Ataque
+ *  Especial/Defensa Especial en la Generación II), solo en tramos
+ *  `generation-i`. */
+interface PokeApiPastStatEntry {
+  readonly generation: NamedApiResource;
+  readonly stats: readonly PokeApiStat[];
+}
+
 interface PokeApiPokemonResource {
   readonly name: string;
   readonly types: readonly PokeApiTypeSlot[];
@@ -269,6 +320,11 @@ interface PokeApiPokemonResource {
    *  vacío si el Pokémon nunca cambió de tipo. */
   readonly past_types?: readonly PokeApiPastTypeEntry[];
   readonly stats: readonly PokeApiStat[];
+  /** Tramos de estadísticas anteriores a las actuales (spec
+   *  `022-historical-stat-changes`) — ausente o vacío si la especie
+   *  nunca tuvo un cambio histórico de estadísticas (la inmensa
+   *  mayoría). */
+  readonly past_stats?: readonly PokeApiPastStatEntry[];
   readonly sprites: PokeApiSprites;
   readonly forms: readonly NamedApiResource[];
 }
@@ -401,13 +457,20 @@ export class PokeApiPokemonRepositoryService implements PokemonRepository {
       this.resolveApplicableTypes(principalPokemon, game.generation.id),
       languageCode,
     );
+    // FR (`022-historical-stat-changes`): las estadísticas base de la
+    // forma principal se resuelven para la generación del juego activo
+    // (combinando `past_stats` si la especie tuvo algún cambio
+    // histórico) — a diferencia de `resolveOtherVarietyForms()` más
+    // abajo, que sigue leyendo `pokemon.stats` sin combinar nada (FR-006:
+    // el cambio histórico nunca aplica a una variedad alternativa).
+    const applicableStats = this.resolveApplicableStats(principalPokemon, game.generation.id);
     const baseStats = new PokemonStats(
-      findStat(principalPokemon.stats, 'hp'),
-      findStat(principalPokemon.stats, 'attack'),
-      findStat(principalPokemon.stats, 'defense'),
-      findStat(principalPokemon.stats, 'special-attack'),
-      findStat(principalPokemon.stats, 'special-defense'),
-      findStat(principalPokemon.stats, 'speed'),
+      findStat(applicableStats, 'hp'),
+      findStat(applicableStats, 'attack'),
+      findStat(applicableStats, 'defense'),
+      findStat(applicableStats, 'special-attack'),
+      findStat(applicableStats, 'special-defense'),
+      findStat(applicableStats, 'speed'),
     );
 
     const [cosmeticVariants, otherVarietyForms] = await Promise.all([
@@ -459,6 +522,13 @@ export class PokeApiPokemonRepositoryService implements PokemonRepository {
       introducedGeneration,
       sourceTag,
       baseStats,
+      // FR-020 (`021-move-slots-filters`): la variedad que aplica de
+      // verdad en este juego cuando no se elige una forma alternativa —
+      // `principalVariety`, no la especie cruda `pokemonId` — para que el
+      // movepool/moveset por defecto de una forma regional (p. ej.
+      // Ninetales de Alola en Ultra Sol/Ultra Luna) no caiga en la
+      // variedad de Kanto por defecto de PokeAPI.
+      principalVariety.pokemon.name,
     );
   }
 
@@ -510,6 +580,45 @@ export class PokeApiPokemonRepositoryService implements PokemonRepository {
       .filter((pastType) => generationOrdinal(pastType.generation.name) >= targetOrdinal)
       .sort((a, b) => generationOrdinal(a.generation.name) - generationOrdinal(b.generation.name));
     return applicablePastTypes[0]?.types ?? pokemon.types;
+  }
+
+  /** FR (`022-historical-stat-changes`): las estadísticas base de un
+   *  Pokémon pueden variar según la generación/juego activo — usa
+   *  `past_stats` para combinar todos los tramos aplicables a la
+   *  generación del juego activo (todos los que tengan generación `>=`
+   *  la del juego), no solo el más cercano como `resolveApplicableTypes`:
+   *  cada tramo es **parcial** (solo lista las estadísticas que
+   *  realmente cambiaron en ese corte), así que dos tramos distintos
+   *  pueden aplicar a la vez sobre estadísticas distintas (verificado en
+   *  vivo: Pidgeot tiene un tramo `generation-i` con `special` — el
+   *  valor pre-split de Ataque Especial/Defensa Especial, antes de que
+   *  existieran como estadísticas separadas — y un tramo `generation-v`
+   *  con `speed`, independientes entre sí). Cuando dos tramos aplicables
+   *  mencionan la misma estadística, gana el de generación más cercana
+   *  a la del juego activo. Si ningún tramo aplicable la menciona, se
+   *  usa el valor vigente (`pokemon.stats`). */
+  private resolveApplicableStats(pokemon: PokeApiPokemonResource, targetGenerationId: string): readonly PokeApiStat[] {
+    const targetOrdinal = generationOrdinal(targetGenerationId);
+    const applicablePastStats = (pokemon.past_stats ?? [])
+      .filter((pastStat) => generationOrdinal(pastStat.generation.name) >= targetOrdinal)
+      .sort((a, b) => generationOrdinal(a.generation.name) - generationOrdinal(b.generation.name));
+
+    const resolved = new Map(pokemon.stats.map((s) => [s.stat.name, s.base_stat]));
+    // De más lejano a más cercano, para que el tramo MÁS CERCANO a la
+    // generación activa gane si dos tramos definieran la misma
+    // estadística (no se conoce ningún caso real así, pero no puede
+    // descartarse — FR-007).
+    for (const pastStat of [...applicablePastStats].reverse()) {
+      for (const stat of pastStat.stats) {
+        // `'special'` (pre-Generación II) es el valor único anterior al
+        // split de Ataque Especial/Defensa Especial — se asigna a ambas.
+        const names = stat.stat.name === 'special' ? ['special-attack', 'special-defense'] : [stat.stat.name];
+        for (const name of names) {
+          resolved.set(name, stat.base_stat);
+        }
+      }
+    }
+    return Array.from(resolved, ([name, base_stat]) => ({ base_stat, stat: { name, url: '' } }));
   }
 
   private resolveTypes(
@@ -675,9 +784,14 @@ export class PokeApiPokemonRepositoryService implements PokemonRepository {
         // TEMPLATE_FORM_ONLY_IN_GAME_IDS arriba.
         const onlyInGameIds = TEMPLATE_FORM_ONLY_IN_GAME_IDS[variety.pokemon.name];
         const isRestrictedToOtherGame = onlyInGameIds !== undefined && !onlyInGameIds.includes(game.id);
+        // BATTLE_ONLY_SELECTABLE_VARIETY_IDS anula el `is_battle_only`
+        // global de PokeAPI para esta variedad puntual (p. ej. Zygarde
+        // Completo, Wishiwashi Escolar, Meloetta Pirueta) — ver
+        // comentario junto a la constante.
+        const isBattleOnly = (form?.is_battle_only ?? false) && !BATTLE_ONLY_SELECTABLE_VARIETY_IDS.has(variety.pokemon.name);
         return {
           kind,
-          isBattleOnly: form?.is_battle_only ?? false,
+          isBattleOnly,
           hasSprites,
           isCosmeticOnly,
           isRestrictedToOtherGame,

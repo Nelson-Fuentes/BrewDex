@@ -32,6 +32,11 @@ export class Move {
     readonly power: number | null,
     /** Texto de sabor/efecto, localizado con fallback inglés. */
     readonly description: string,
+    /** Precisión (0-100). `null` cuando el movimiento nunca falla (p. ej.
+     *  Swords Dance, Aurora Veil) — igual que PokeAPI, nunca un sentinela
+     *  como `0` o `100`. Opcional por compatibilidad con construcciones
+     *  existentes que no lo pasan. */
+    readonly accuracy: number | null = null,
   ) {}
 
   /** Igualdad por `id` únicamente, igual que {@link SelectableForm}. */

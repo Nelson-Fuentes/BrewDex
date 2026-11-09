@@ -22,4 +22,17 @@ describe('Move', () => {
     expect(physical.damageClass).toBe('physical');
     expect(special.damageClass).toBe('special');
   });
+
+  it('accuracy es null por defecto (compatibilidad con construcciones existentes) y aceptable explícito', () => {
+    const withoutAccuracy = new Move('tackle', 'Tackle', normal, 'physical', 35, 40, '...');
+    expect(withoutAccuracy.accuracy).toBeNull();
+
+    const withAccuracy = new Move('tackle', 'Tackle', normal, 'physical', 35, 40, '...', 100);
+    expect(withAccuracy.accuracy).toBe(100);
+  });
+
+  it('accuracy null representa un movimiento que nunca falla, no un sentinela de "sin datos"', () => {
+    const alwaysHits = new Move('swords-dance', 'Swords Dance', normal, 'status', 20, null, '...', null);
+    expect(alwaysHits.accuracy).toBeNull();
+  });
 });

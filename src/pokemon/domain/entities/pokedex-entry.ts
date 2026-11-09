@@ -42,6 +42,16 @@ export class PokedexEntry {
     readonly introducedGeneration: Generation,
     readonly sourceTag: PokedexEntrySource,
     readonly baseStats: PokemonStats,
+    /** La variedad de PokeAPI que efectivamente aplica en el juego activo
+     *  cuando no se elige explícitamente ninguna forma alternativa
+     *  (`RosterEntry.formVarietyId === null`). Normalmente igual a
+     *  `pokemonId`, pero distinta cuando una forma regional
+     *  (Alola/Galar/Hisui/Paldea) es la variedad PRINCIPAL en este juego
+     *  (p. ej. `ninetales-alola` en Ultra Sol/Ultra Luna, mientras
+     *  `pokemonId` sigue siendo `ninetales`) — ver
+     *  `Reglas_Movimientos` en la bóveda. Por defecto igual a
+     *  `pokemonId` para no romper construcciones existentes. */
+    readonly defaultVarietyId: string = pokemonId,
   ) {
     if (!pokemonId) {
       throw new Error('PokedexEntry.pokemonId must not be empty');

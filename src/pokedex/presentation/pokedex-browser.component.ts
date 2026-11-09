@@ -324,11 +324,12 @@ export class PokedexBrowserComponent implements AfterViewInit, DoCheck, OnDestro
       }
     }
 
-    const sections: PokedexSection[] = [{ title: 'main', entries: filterPokedexEntries(mainEntries, criteria) }];
+    const activeDlcIds = this.activeDlcIds();
+    const sections: PokedexSection[] = [{ title: 'main', entries: filterPokedexEntries(mainEntries, criteria, activeDlcIds) }];
     for (const dlc of this.activeDlcs()) {
       const entries = dlcEntriesById.get(dlc.id);
       if (entries && entries.length > 0) {
-        sections.push({ title: dlc.id, entries: filterPokedexEntries(entries, criteria) });
+        sections.push({ title: dlc.id, entries: filterPokedexEntries(entries, criteria, activeDlcIds) });
       }
     }
     return sections;

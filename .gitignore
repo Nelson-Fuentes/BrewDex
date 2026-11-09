@@ -1,3 +1,8 @@
+# Configuración local de agentes de IA (no se versiona)
+/CLAUDE.md
+/.agents/
+/.claude/
+
 # Miscellaneous
 *.class
 *.log
