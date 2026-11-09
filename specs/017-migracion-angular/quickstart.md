@@ -11,7 +11,6 @@ Guía para levantar la app y comprobar de punta a punta las dos User Stories P1 
 ## Levantar el proyecto
 
 ```bash
-cd web
 npm install
 npm start            # ng serve — http://localhost:4200
 ```
@@ -53,7 +52,7 @@ Manualmente: redimensionar la ventana del navegador (o usar las herramientas de 
 
 ```bash
 npm run build          # ng build — genera dist/ con el service worker (ngsw) habilitado
-npx http-server dist/web/browser -p 8080   # el service worker solo se activa servido, no en `ng serve`
+npx http-server dist/brewdex/browser -p 8080   # el service worker solo se activa servido, no en `ng serve`
 ```
 
 Abrir `http://localhost:8080` en Chrome/Edge de escritorio o Android: debe ofrecerse la opción "Instalar app" (ícono en la barra de direcciones, o menú del navegador). Instalarla y confirmar que abre en su propia ventana, con su propio ícono — sin necesitar conexión offline (Assumptions: el funcionamiento sin conexión queda fuera de alcance).

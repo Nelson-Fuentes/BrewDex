@@ -7,7 +7,6 @@ Construida con [Angular](https://angular.dev) — ver [specs/017-migracion-angul
 ## Desarrollo
 
 ```bash
-cd web
 npm install
 npm start        # http://localhost:4200
 ```
@@ -15,7 +14,6 @@ npm start        # http://localhost:4200
 ## Tests
 
 ```bash
-cd web
 npm test          # unitarios (Karma/Jasmine)
 npm run test:e2e  # extremo a extremo (Playwright + auditoría de accesibilidad)
 ```
@@ -23,8 +21,7 @@ npm run test:e2e  # extremo a extremo (Playwright + auditoría de accesibilidad)
 ## Build
 
 ```bash
-cd web
-npm run build      # dist/web/ — SPA estática instalable (PWA)
+npm run build      # dist/brewdex/ — SPA estática instalable (PWA)
 ```
 
 Ninguna variable de entorno ni credencial es necesaria: la app consume [PokeAPI](https://pokeapi.co) públicamente desde el navegador. No hay backend propio.

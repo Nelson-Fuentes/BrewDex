@@ -30,7 +30,7 @@ Proyecto Angular único en `web/` (ver [plan.md](./plan.md) "Project Structure")
 **Purpose**: Retirar por completo el código Flutter existente y dejar el repositorio listo para inicializar el workspace Angular y las herramientas comunes a todos los módulos.
 
 - [X] T001 Eliminar el árbol Flutter completo del repositorio (`lib/`, `test/`, `integration_test/`, `android/`, `ios/`, `pubspec.yaml`, `pubspec.lock`, `analysis_options.yaml`, `l10n.yaml`, `devtools_options.yaml`, `.metadata`, `.flutter-plugins-dependencies`, `brewdex.iml`, `build/`) — FR-021, corrección explícita del usuario: no hay coexistencia ni validación previa de Angular, se borra ya al empezar. También se eliminaron `web/` (scaffold del target web de Flutter), `.dart_tool/`, `tool/` y `.idea/`, no previstos en el plan pero igualmente específicos de Flutter/Dart.
-- [X] T002 Actualizar `README.md` en la raíz del repo para describir el flujo Angular (`cd web && npm start`) en vez de las instrucciones de Flutter ya eliminadas (depende de T001)
+- [X] T002 Actualizar `README.md` en la raíz del repo para describir el flujo Angular (`npm start`) en vez de las instrucciones de Flutter ya eliminadas (depende de T001)
 - [X] T003 Crear el workspace Angular 18 standalone (`ng new web --routing --style=scss --ssr=false --skip-git`) y los directorios de módulo vacíos `web/src/{language,game,pokemon,pokedex,team,shared}/{domain,application,infrastructure,presentation}` per [plan.md](./plan.md) "Project Structure"
 - [X] T004 [P] Agregar Angular Material, Angular CDK y `@angular/pwa` al proyecto (`ng add @angular/material`, `ng add @angular/pwa`) en `web/`
 - [X] T005 [P] Agregar `@jsverse/transloco` y su schematic de inicialización en `web/` ([research.md](./research.md) Decisión 3)

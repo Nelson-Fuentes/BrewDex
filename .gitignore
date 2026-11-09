@@ -12,6 +12,35 @@
 .swiftpm/
 migrate_working_dir/
 
+# Graphify local tool state — el artefacto versionado del proyecto es
+# graphify-out/ (ver CLAUDE.md §1); .graphify/ es la caché local que el
+# CLI regenera en cada corrida (potencialmente en cualquier subcarpeta).
+.graphify/
+**/.graphify/
+
+# Angular / Node (app en la raíz del repo — ver README.md)
+/dist
+/tmp
+/out-tsc
+/bazel-out
+/node_modules
+npm-debug.log
+yarn-error.log
+/.angular/cache
+.sass-cache/
+/connect.lock
+/coverage
+/libpeerconnection.log
+testem.log
+/typings
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
 # IntelliJ related
 *.iml
 *.ipr

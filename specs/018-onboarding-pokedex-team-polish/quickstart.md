@@ -3,7 +3,6 @@
 ## Prerequisites
 
 ```bash
-cd web
 npm install   # if not already done
 ```
 
